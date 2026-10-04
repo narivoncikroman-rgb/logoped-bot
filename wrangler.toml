@@ -1,0 +1,10 @@
+name = "logoped-bot"
+main = "src/entry.py"
+compatibility_date = "2026-10-04"
+
+[vars]
+ENVIRONMENT = "production"
+
+[[kv_namespaces]]
+binding = "HISTORY"
+id = "ВСТАВИМ_СЮДА_ID_ПОЗЖЕ"
