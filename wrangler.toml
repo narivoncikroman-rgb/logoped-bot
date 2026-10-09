@@ -3,5 +3,9 @@ main = "src/entry.py"
 compatibility_date = "2026-10-09"
 compatibility_flags = ["python_workers"]
 
+[vars]
+ENVIRONMENT = "production"
+
 [[kv_namespaces]]
 binding = "HISTORY"
+id = "19700c03443b46da82f95e0026a095aa"
