@@ -49,16 +49,14 @@ class Default(WorkerEntrypoint):
 
             await fetch(
                 url,
-                {
-                    "method": "POST",
-                    "headers": {
-                        "Content-Type": "application/json"
-                    },
-                    "body": json.dumps({
-                        "chat_id": chat_id,
-                        "text": answer
-                    })
-                }
+                method="POST",
+                headers={
+                    "Content-Type": "application/json"
+                },
+                body=json.dumps({
+                    "chat_id": chat_id,
+                    "text": answer
+                })
             )
 
             return Response("OK", status=200)
