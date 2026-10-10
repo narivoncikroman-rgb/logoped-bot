@@ -71,10 +71,10 @@ class Default(WorkerEntrypoint):
                             "Не удалось подобрать план для этого результата. "
                             "Попробуй отправить описание речевых трудностей ещё раз."
                         )
+
             else:
                 results = analyze(text)
-
-            if results:
+                if results:
                 result = results[0]
 
                 age = None
