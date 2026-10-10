@@ -244,7 +244,7 @@ def get_plan(disorder_code: str, age: int) -> list[str] | None:
     for group, plan in age_groups.items():
         lo, hi = map(int, group.split("-"))
 
-        if lo <= age <= hi:
+        if lo <= age < hi:
             return plan
 
     # Если возраст не попал в диапазон —
