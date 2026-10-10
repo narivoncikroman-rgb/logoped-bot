@@ -153,8 +153,8 @@ class Default(WorkerEntrypoint):
                     data = json.loads(saved)
                     age = data.get("age")
                     code = data.get("code")
-                    plan = get_plan(code, age) if code and age else None
-
+                    description = data.get("description", "")
+                    plan = get_plan(code, age, description) if code and age else None
                     if plan:
                         answer = (
                             f"📋 План занятий\n"
