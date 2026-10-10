@@ -9,3 +9,6 @@ ENVIRONMENT = "production"
 [[kv_namespaces]]
 binding = "HISTORY"
 id = "19700c03443b46da82f95e0026a095aa"
+[observability.logs]
+enabled = false
+invocation_logs = true
