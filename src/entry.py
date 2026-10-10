@@ -6,6 +6,34 @@ from plans import get_plan
 from workers import WorkerEntrypoint, Response, fetch
 
 
+MAIN_KEYBOARD = {
+    "keyboard": [
+        [
+            {"text": "🔍 Новый анализ"},
+            {"text": "📋 План занятий"}
+        ],
+        [
+            {"text": "📚 История анализов"},
+            {"text": "🗑️ Очистить историю"}
+        ],
+        [
+            {"text": "ℹ️ О боте"}
+        ]
+    ],
+    "resize_keyboard": True
+}
+
+CONFIRM_KEYBOARD = {
+    "keyboard": [
+        [
+            {"text": "🗑️ Да, удалить"},
+            {"text": "↩️ Отмена"}
+        ]
+    ],
+    "resize_keyboard": True
+}
+
+
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if request.method != "POST":
@@ -26,29 +54,63 @@ class Default(WorkerEntrypoint):
 
             user_key = str(chat_id)
             history_key = f"history:{user_key}"
+            confirm_key = f"clear_confirm:{user_key}"
 
-            if text == "/start":
+            answer = ""
+            keyboard = MAIN_KEYBOARD
+
+            pending = await self.env.HISTORY.get(confirm_key)
+
+            if pending and text not in (
+                "🗑️ Да, удалить",
+                "↩️ Отмена"
+            ):
+                await self.env.HISTORY.delete(confirm_key)
+                pending = None
+
+            if text == "🗑️ Да, удалить" and pending:
+                await self.env.HISTORY.delete(history_key)
+                await self.env.HISTORY.delete(user_key)
+                await self.env.HISTORY.delete(confirm_key)
+
+                answer = "✅ История анализов очищена."
+
+            elif text == "↩️ Отмена" and pending:
+                await self.env.HISTORY.delete(confirm_key)
+                answer = "Удаление отменено. История сохранена."
+
+            elif text in ("/start", "🏠 Главное меню"):
                 answer = (
                     "Привет! 👋\n\n"
                     "Я помощник логопеда-дефектолога.\n"
-                    "Помогаю разбирать описания речевых трудностей "
-                    "и подбирать направления работы.\n\n"
-                    "Команды:\n"
-                    "/help — помощь\n"
-                    "/plan — план занятий\n"
-                    "/history — история анализов"
+                    "Выбери действие в меню ниже.\n\n"
+                    "🔍 Новый анализ — анализ речевых трудностей\n"
+                    "📋 План занятий — план по последнему анализу\n"
+                    "📚 История анализов — прошлые результаты\n"
+                    "🗑️ Очистить историю — удалить сохранённые записи\n"
+                    "ℹ️ О боте — информация о помощнике"
                 )
 
-            elif text == "/help":
+            elif text in ("/help", "ℹ️ О боте"):
                 answer = (
-                    "📚 Я умею анализировать описания речевых трудностей.\n\n"
+                    "ℹ️ О боте\n\n"
+                    "Я помогаю предварительно анализировать "
+                    "описания речевых трудностей и подбирать "
+                    "направления работы.\n\n"
                     "Отправь описание и возраст ребёнка.\n"
                     "Например: Ребёнок 5 лет не выговаривает звук Р.\n\n"
-                    "/plan — план занятий\n"
-                    "/history — история анализов"
+                    "Результат не является диагнозом. "
+                    "Для оценки ребёнка обратитесь к логопеду-дефектологу."
                 )
 
-            elif text == "/history":
+            elif text in ("🔍 Новый анализ",):
+                answer = (
+                    "🔍 Напиши описание речевых трудностей "
+                    "и возраст ребёнка.\n\n"
+                    "Например: Ребёнок 5 лет не выговаривает звук Р."
+                )
+
+            elif text in ("/history", "📚 История анализов"):
                 saved_history = await self.env.HISTORY.get(history_key)
 
                 if not saved_history:
@@ -59,7 +121,6 @@ class Default(WorkerEntrypoint):
                     )
                 else:
                     history = json.loads(saved_history)
-
                     lines = ["📚 Последние анализы:\n"]
 
                     for i, item in enumerate(reversed(history), 1):
@@ -80,20 +141,18 @@ class Default(WorkerEntrypoint):
 
                     answer = "\n".join(lines)
 
-            elif text == "/plan":
+            elif text in ("/plan", "📋 План занятий"):
                 saved = await self.env.HISTORY.get(user_key)
 
                 if not saved:
                     answer = (
                         "📋 Сначала отправь описание речевых трудностей "
-                        "и возраст ребёнка.\n\n"
-                        "Например: Ребёнок 5 лет не выговаривает звук Р."
+                        "и возраст ребёнка."
                     )
                 else:
                     data = json.loads(saved)
                     age = data.get("age")
                     code = data.get("code")
-
                     plan = get_plan(code, age) if code and age else None
 
                     if plan:
@@ -106,14 +165,22 @@ class Default(WorkerEntrypoint):
                                 for i, item in enumerate(plan, 1)
                             )
                             + "\n\n⚠️ План ориентировочный. "
-                            "Упражнения следует подбирать с учётом "
-                            "рекомендаций специалиста."
+                            "Учитывайте рекомендации специалиста."
                         )
                     else:
                         answer = (
                             "Не удалось подобрать план для этого результата. "
-                            "Попробуй отправить описание ещё раз."
+                            "Отправь новое описание речевых трудностей."
                         )
+
+            elif text in ("/clear", "🗑️ Очистить историю"):
+                await self.env.HISTORY.put(confirm_key, "1")
+                answer = (
+                    "⚠️ Ты действительно хочешь удалить историю анализов "
+                    "и последний сохранённый результат?\n\n"
+                    "Это действие нельзя отменить."
+                )
+                keyboard = CONFIRM_KEYBOARD
 
             else:
                 results = analyze(text)
@@ -142,12 +209,11 @@ class Default(WorkerEntrypoint):
                     }
 
                     saved_history = await self.env.HISTORY.get(history_key)
-
-                    if saved_history:
-                        history = json.loads(saved_history)
-                    else:
-                        history = []
-
+                    history = (
+                        json.loads(saved_history)
+                        if saved_history
+                        else []
+                    )
                     history.append(entry)
                     history = history[-20:]
 
@@ -179,8 +245,7 @@ class Default(WorkerEntrypoint):
                 else:
                     answer = (
                         "Пока не удалось найти достаточно совпадений.\n\n"
-                        "Опиши подробнее, какие речевые трудности "
-                        "наблюдаются и в каком возрасте."
+                        "Опиши подробнее речевые трудности и возраст ребёнка."
                     )
 
             token = self.env.BOT_TOKEN
@@ -194,8 +259,9 @@ class Default(WorkerEntrypoint):
                 },
                 body=json.dumps({
                     "chat_id": chat_id,
-                    "text": answer
-                })
+                    "text": answer,
+                    "reply_markup": keyboard
+                }, ensure_ascii=False)
             )
 
             return Response("OK", status=200)
