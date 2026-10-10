@@ -71,64 +71,64 @@ class Default(WorkerEntrypoint):
                     )
 
         else:
-            results = analyze(text)
+                results = analyze(text)
 
-            if results:
-                result = results[0]
+                if results:
+                    result = results[0]
 
-                age = None
-                words = text.split()
+                    age = None
+                    words = text.split()
 
-                for word in words:
-                    clean_word = word.strip(".,!?;:")
-                    if clean_word.isdigit():
-                        number = int(clean_word)
-                        if 1 <= number <= 18:
-                            age = number
-                            break
+                    for word in words:
+                        clean_word = word.strip(".,!?;:")
+                        if clean_word.isdigit():
+                            number = int(clean_word)
+                            if 1 <= number <= 18:
+                                age = number
+                                break
 
-                if age is not None:
-                    await self.env.HISTORY.put(
-                        str(chat_id),
-                        json.dumps({
-                            "age": age,
-                            "code": result.get("code"),
-                            "name": result.get("name")
-                        }, ensure_ascii=False)
+                    if age is not None:
+                        await self.env.HISTORY.put(
+                            str(chat_id),
+                            json.dumps({
+                                "age": age,
+                                "code": result.get("code"),
+                                "name": result.get("name")
+                            }, ensure_ascii=False)
+                        )
+
+                    answer = (
+                        "🔍 Предварительный результат анализа\n\n"
+                        f"Возможный вариант: {result.get('name', 'Не определён')}\n"
+                        f"Совпадение: {result.get('score', 0)}%\n\n"
+                        f"{result.get('description', '')}\n\n"
+                        "⚠️ Это ориентировочная оценка, а не диагноз. "
+                        "Для уточнения обратитесь к логопеду-дефектологу."
+                    )
+                else:
+                    answer = (
+                        "Пока не удалось найти достаточно совпадений.\n\n"
+                        "Опиши подробнее, какие именно речевые "
+                        "трудности наблюдаются и в каком возрасте."
                     )
 
-                answer = (
-                    "🔍 Предварительный результат анализа\n\n"
-                    f"Возможный вариант: {result.get('name', 'Не определён')}\n"
-                    f"Совпадение: {result.get('score', 0)}%\n\n"
-                    f"{result.get('description', '')}\n\n"
-                    "⚠️ Это ориентировочная оценка, а не диагноз. "
-                    "Для уточнения обратитесь к логопеду-дефектологу."
-                )
-            else:
-                answer = (
-                    "Пока не удалось найти достаточно совпадений.\n\n"
-                    "Опиши подробнее, какие именно речевые "
-                    "трудности наблюдаются и в каком возрасте."
-                )
+            token = self.env.BOT_TOKEN
+            url = f"https://api.telegram.org/bot{token}/sendMessage"
 
-        token = self.env.BOT_TOKEN
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
+            await fetch(
+                url,
+                method="POST",
+                headers={
+                    "Content-Type": "application/json"
+                },
+                body=json.dumps({
+                    "chat_id": chat_id,
+                    "text": answer
+                })
+            )
 
-        await fetch(
-            url,
-            method="POST",
-            headers={
-                "Content-Type": "application/json"
-            },
-            body=json.dumps({
-                "chat_id": chat_id,
-                "text": answer
-            })
-        )
+            return Response("OK", status=200)
 
-        return Response("OK", status=200)
-
-    except Exception as error:
-        print(f"Webhook error: {error}")
-        return Response("Error", status=500)
+        except Exception as error:
+            print(f"Webhook error: {error}")
+            return Response("Error", status=500)
