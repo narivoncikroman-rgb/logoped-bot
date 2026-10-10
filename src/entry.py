@@ -39,11 +39,38 @@ class Default(WorkerEntrypoint):
                 )
 
             elif text == "/plan":
-                answer = (
-                    "📋 Чтобы подобрать план занятий, сначала отправь "
-                    "описание речевых трудностей ребёнка и его возраст."
-                )
+                saved = await self.env.HISTORY.get(str(chat_id))
 
+                if not saved:
+                    answer = (
+                        "📋 Сначала отправь описание речевых трудностей "
+                        "и возраст ребёнка.\n\n"
+                        "Например: Ребёнок 5 лет не выговаривает звук Р."
+                    )
+                else:
+                    data = json.loads(saved)
+                    age = data.get("age")
+                    code = data.get("code")
+
+                    plan = get_plan(code, age) if code and age else None
+
+                    if plan:
+                        answer = (
+                            f"📋 План занятий\n"
+                            f"Возраст: {age} лет\n"
+                            f"Направление: {data.get('name', 'Не определено')}\n\n"
+                            + "\n".join(
+                                f"{i}. {item}"
+                                for i, item in enumerate(plan, 1)
+                            )
+                            + "\n\n⚠️ План ориентировочный. "
+                            "Подбирайте упражнения с учётом рекомендаций специалиста."
+                        )
+                    else:
+                        answer = (
+                            "Не удалось подобрать план для этого результата. "
+                            "Попробуй отправить описание речевых трудностей ещё раз."
+                        )
             else:
                 results = analyze(text)
 
