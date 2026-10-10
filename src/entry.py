@@ -2,6 +2,8 @@ import json
 from analyzer import analyze
 from plans import get_plan
 from workers import WorkerEntrypoint, Response, fetch
+
+
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if request.method != "POST":
@@ -9,77 +11,76 @@ class Default(WorkerEntrypoint):
                 "Logoped bot worker is running!",
                 status=200
             )
-    try:
-        update = await request.json()
-        message = update.get("message", {})
-        chat = message.get("chat", {})
-        text = message.get("text", "").strip()
-        chat_id = chat.get("id")
 
-        if not chat_id:
-            return Response("OK", status=200)
+        try:
+            update = await request.json()
+            message = update.get("message", {})
+            chat = message.get("chat", {})
+            text = message.get("text", "").strip()
+            chat_id = chat.get("id")
 
-        if text == "/start":
-            answer = (
-                "Привет! 👋\n\n"
-                "Я помощник логопеда-дефектолога.\n"
-                "Помогаю разбирать описания речевых трудностей "
-                "и подбирать направления работы.\n\n"
-                "Напиши /help, чтобы узнать больше."
-            )
+            if not chat_id:
+                return Response("OK", status=200)
 
-        elif text == "/help":
-            answer = (
-                "📚 Я умею анализировать описания речевых трудностей.\n\n"
-                "Отправь описание и возраст ребёнка.\n"
-                "Например: Ребёнок 5 лет не выговаривает звук Р.\n\n"
-                "Чтобы получить план занятий, напиши /plan."
-            )
-
-        elif text == "/plan":
-            saved = await self.env.HISTORY.get(str(chat_id))
-
-            if not saved:
+            if text == "/start":
                 answer = (
-                    "📋 Сначала отправь описание речевых трудностей "
-                    "и возраст ребёнка.\n\n"
-                    "Например: Ребёнок 5 лет не выговаривает звук Р."
+                    "Привет! 👋\n\n"
+                    "Я помощник логопеда-дефектолога.\n"
+                    "Помогаю разбирать описания речевых трудностей "
+                    "и подбирать направления работы.\n\n"
+                    "Напиши /help, чтобы узнать больше."
                 )
-            else:
-                data = json.loads(saved)
-                age = data.get("age")
-                code = data.get("code")
 
-                plan = get_plan(code, age) if code and age else None
+            elif text == "/help":
+                answer = (
+                    "📚 Я умею анализировать описания речевых трудностей.\n\n"
+                    "Отправь описание и возраст ребёнка.\n"
+                    "Например: Ребёнок 5 лет не выговаривает звук Р.\n\n"
+                    "Чтобы получить план занятий, напиши /plan."
+                )
 
-                if plan:
+            elif text == "/plan":
+                saved = await self.env.HISTORY.get(str(chat_id))
+
+                if not saved:
                     answer = (
-                        f"📋 План занятий\n"
-                        f"Возраст: {age} лет\n"
-                        f"Направление: {data.get('name', 'Не определено')}\n\n"
-                        + "\n".join(
-                            f"{i}. {item}"
-                            for i, item in enumerate(plan, 1)
-                        )
-                        + "\n\n⚠️ План ориентировочный. "
-                        "Подбирайте упражнения с учётом рекомендаций специалиста."
+                        "📋 Сначала отправь описание речевых трудностей "
+                        "и возраст ребёнка.\n\n"
+                        "Например: Ребёнок 5 лет не выговаривает звук Р."
                     )
                 else:
-                    answer = (
-                        "Не удалось подобрать план для этого результата. "
-                        "Попробуй отправить описание речевых трудностей ещё раз."
-                    )
+                    data = json.loads(saved)
+                    age = data.get("age")
+                    code = data.get("code")
 
-        else:
+                    plan = get_plan(code, age) if code and age else None
+
+                    if plan:
+                        answer = (
+                            f"📋 План занятий\n"
+                            f"Возраст: {age} лет\n"
+                            f"Направление: {data.get('name', 'Не определено')}\n\n"
+                            + "\n".join(
+                                f"{i}. {item}"
+                                for i, item in enumerate(plan, 1)
+                            )
+                            + "\n\n⚠️ План ориентировочный. "
+                            "Подбирайте упражнения с учётом рекомендаций специалиста."
+                        )
+                    else:
+                        answer = (
+                            "Не удалось подобрать план для этого результата. "
+                            "Попробуй отправить описание речевых трудностей ещё раз."
+                        )
+
+            else:
                 results = analyze(text)
 
                 if results:
                     result = results[0]
-
                     age = None
-                    words = text.split()
 
-                    for word in words:
+                    for word in text.split():
                         clean_word = word.strip(".,!?;:")
                         if clean_word.isdigit():
                             number = int(clean_word)
@@ -131,4 +132,4 @@ class Default(WorkerEntrypoint):
 
         except Exception as error:
             print(f"Webhook error: {error}")
-            return Response("Error", status=500)
+            return Response("Internal Server Error", status=500)
