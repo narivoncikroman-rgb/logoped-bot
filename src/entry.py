@@ -30,9 +30,10 @@ class Default(WorkerEntrypoint):
                     "Напиши /help, чтобы узнать больше."
                 )
             else:
-                result = analyze(text)
+                results = analyze(text)
 
-                if result and result.get("score", 0) >= 25:
+                if results:
+                    result = results[0]
                     answer = (
                         "🔍 Предварительный результат анализа\n\n"
                         f"Возможный вариант: {result.get('name', 'Не определён')}\n"
