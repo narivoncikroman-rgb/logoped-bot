@@ -47,29 +47,29 @@ class Default(WorkerEntrypoint):
             else:
                 results = analyze(text)
 
-                if results:
-    result = results[0]
+            if results:
+                result = results[0]
 
-    age = None
-    words = text.split()
+                age = None
+                words = text.split()
 
-    for word in words:
-        clean_word = word.strip(".,!?;:")
-        if clean_word.isdigit():
-            number = int(clean_word)
-            if 1 <= number <= 18:
-                age = number
-                break
+                for word in words:
+                    clean_word = word.strip(".,!?;:")
+                    if clean_word.isdigit():
+                        number = int(clean_word)
+                        if 1 <= number <= 18:
+                            age = number
+                            break
 
-    if age is not None:
-        await self.env.HISTORY.put(
-            str(chat_id),
-            json.dumps({
-                "age": age,
-                "code": result.get("code"),
-                "name": result.get("name")
-            }, ensure_ascii=False)
-        )
+                if age is not None:
+                    await self.env.HISTORY.put(
+                        str(chat_id),
+                        json.dumps({
+                            "age": age,
+                            "code": result.get("code"),
+                            "name": result.get("name")
+                                                }, ensure_ascii=False)
+                                            )
                     answer = (
                         "🔍 Предварительный результат анализа\n\n"
                         f"Возможный вариант: {result.get('name', 'Не определён')}\n"
