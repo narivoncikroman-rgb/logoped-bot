@@ -1,4 +1,6 @@
 import json
+from datetime import datetime, timezone
+
 from analyzer import analyze
 from plans import get_plan
 from workers import WorkerEntrypoint, Response, fetch
@@ -22,13 +24,19 @@ class Default(WorkerEntrypoint):
             if not chat_id:
                 return Response("OK", status=200)
 
+            user_key = str(chat_id)
+            history_key = f"history:{user_key}"
+
             if text == "/start":
                 answer = (
                     "Привет! 👋\n\n"
                     "Я помощник логопеда-дефектолога.\n"
                     "Помогаю разбирать описания речевых трудностей "
                     "и подбирать направления работы.\n\n"
-                    "Напиши /help, чтобы узнать больше."
+                    "Команды:\n"
+                    "/help — помощь\n"
+                    "/plan — план занятий\n"
+                    "/history — история анализов"
                 )
 
             elif text == "/help":
@@ -36,11 +44,44 @@ class Default(WorkerEntrypoint):
                     "📚 Я умею анализировать описания речевых трудностей.\n\n"
                     "Отправь описание и возраст ребёнка.\n"
                     "Например: Ребёнок 5 лет не выговаривает звук Р.\n\n"
-                    "Чтобы получить план занятий, напиши /plan."
+                    "/plan — план занятий\n"
+                    "/history — история анализов"
                 )
 
+            elif text == "/history":
+                saved_history = await self.env.HISTORY.get(history_key)
+
+                if not saved_history:
+                    answer = (
+                        "📚 История пока пуста.\n\n"
+                        "Отправь описание речевых трудностей, "
+                        "чтобы сохранить первый анализ."
+                    )
+                else:
+                    history = json.loads(saved_history)
+
+                    lines = ["📚 Последние анализы:\n"]
+
+                    for i, item in enumerate(reversed(history), 1):
+                        age = item.get("age")
+                        age_text = (
+                            f"{age} лет"
+                            if age is not None
+                            else "возраст не указан"
+                        )
+
+                        lines.append(
+                            f"{i}. {item.get('date', '')}\n"
+                            f"Возраст: {age_text}\n"
+                            f"Описание: {item.get('description', '')}\n"
+                            f"Результат: {item.get('name', 'Не определён')}\n"
+                            f"Совпадение: {item.get('score', 0)}%\n"
+                        )
+
+                    answer = "\n".join(lines)
+
             elif text == "/plan":
-                saved = await self.env.HISTORY.get(str(chat_id))
+                saved = await self.env.HISTORY.get(user_key)
 
                 if not saved:
                     answer = (
@@ -65,12 +106,13 @@ class Default(WorkerEntrypoint):
                                 for i, item in enumerate(plan, 1)
                             )
                             + "\n\n⚠️ План ориентировочный. "
-                            "Подбирайте упражнения с учётом рекомендаций специалиста."
+                            "Упражнения следует подбирать с учётом "
+                            "рекомендаций специалиста."
                         )
                     else:
                         answer = (
                             "Не удалось подобрать план для этого результата. "
-                            "Попробуй отправить описание речевых трудностей ещё раз."
+                            "Попробуй отправить описание ещё раз."
                         )
 
             else:
@@ -88,9 +130,35 @@ class Default(WorkerEntrypoint):
                                 age = number
                                 break
 
+                    entry = {
+                        "date": datetime.now(timezone.utc).strftime(
+                            "%d.%m.%Y %H:%M UTC"
+                        ),
+                        "description": text,
+                        "age": age,
+                        "code": result.get("code"),
+                        "name": result.get("name"),
+                        "score": result.get("score", 0)
+                    }
+
+                    saved_history = await self.env.HISTORY.get(history_key)
+
+                    if saved_history:
+                        history = json.loads(saved_history)
+                    else:
+                        history = []
+
+                    history.append(entry)
+                    history = history[-20:]
+
+                    await self.env.HISTORY.put(
+                        history_key,
+                        json.dumps(history, ensure_ascii=False)
+                    )
+
                     if age is not None:
                         await self.env.HISTORY.put(
-                            str(chat_id),
+                            user_key,
                             json.dumps({
                                 "age": age,
                                 "code": result.get("code"),
@@ -100,17 +168,19 @@ class Default(WorkerEntrypoint):
 
                     answer = (
                         "🔍 Предварительный результат анализа\n\n"
-                        f"Возможный вариант: {result.get('name', 'Не определён')}\n"
+                        f"Возможный вариант: "
+                        f"{result.get('name', 'Не определён')}\n"
                         f"Совпадение: {result.get('score', 0)}%\n\n"
                         f"{result.get('description', '')}\n\n"
+                        "✅ Анализ сохранён в истории.\n\n"
                         "⚠️ Это ориентировочная оценка, а не диагноз. "
                         "Для уточнения обратитесь к логопеду-дефектологу."
                     )
                 else:
                     answer = (
                         "Пока не удалось найти достаточно совпадений.\n\n"
-                        "Опиши подробнее, какие именно речевые "
-                        "трудности наблюдаются и в каком возрасте."
+                        "Опиши подробнее, какие речевые трудности "
+                        "наблюдаются и в каком возрасте."
                     )
 
             token = self.env.BOT_TOKEN
