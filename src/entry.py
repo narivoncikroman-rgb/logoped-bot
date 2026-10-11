@@ -228,9 +228,10 @@ class Default(WorkerEntrypoint):
                             json.dumps({
                                 "age": age,
                                 "code": result.get("code"),
-                                "name": result.get("name")
-                            }, ensure_ascii=False)
-                        )
+                                "name": result.get("name"),
+                                                    "description": text
+                                                }, ensure_ascii=False)
+                                            )
 
                     answer = (
                         "🔍 Предварительный результат анализа\n\n"
