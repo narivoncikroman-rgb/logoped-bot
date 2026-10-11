@@ -238,18 +238,14 @@ def get_plan(
     description: str = "",
 ) -> list[str] | None:
     """Возвращает план работы для нарушения, возраста и описания."""
-
     if disorder_code not in PLANS:
         return None
 
     age_groups = PLANS[disorder_code]
-
-    # Выбираем подходящую возрастную группу
     matching_group = None
 
     for group, plan in age_groups.items():
         lo, hi = map(int, group.split("-"))
-
         if lo <= age < hi:
             matching_group = plan
             break
@@ -259,13 +255,11 @@ def get_plan(
             age_groups.keys(),
             key=lambda g: int(g.split("-")[0])
         )
-
         if age < int(keys[0].split("-")[0]):
             matching_group = age_groups[keys[0]]
         else:
             matching_group = age_groups[keys[-1]]
 
-    # Для дислалии уточняем план по описанию звука
     if disorder_code == "dyslalia":
         text = description.lower().replace("ё", "е")
 
