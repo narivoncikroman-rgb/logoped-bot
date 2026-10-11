@@ -321,7 +321,7 @@ class Default(WorkerEntrypoint):
                     )
 
                     answer = "\n\n".join(sections)
-                    else:
+                else:
                     answer = (
                         "Пока не удалось найти достаточно совпадений.\n\n"
                         "Опиши подробнее речевые трудности "
