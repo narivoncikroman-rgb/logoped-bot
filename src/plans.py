@@ -232,8 +232,12 @@ PLANS = {
 }
 
 
-def get_plan(disorder_code: str, age: int) -> list[str] | None:
-    """Возвращает план работы для нарушения и возраста."""
+def get_plan(
+    disorder_code: str,
+    age: int,
+    description: str = "",
+) -> list[str] | None:
+    """Возвращает план работы для нарушения, возраста и описания."""
 
     if disorder_code not in PLANS:
         return None
@@ -241,20 +245,46 @@ def get_plan(disorder_code: str, age: int) -> list[str] | None:
     age_groups = PLANS[disorder_code]
 
     # Выбираем подходящую возрастную группу
+    matching_group = None
+
     for group, plan in age_groups.items():
         lo, hi = map(int, group.split("-"))
 
         if lo <= age < hi:
-            return plan
+            matching_group = plan
+            break
 
-    # Если возраст не попал в диапазон —
-    # берём ближайшую возрастную группу
-    keys = sorted(
-        age_groups.keys(),
-        key=lambda g: int(g.split("-")[0])
-    )
+    if matching_group is None:
+        keys = sorted(
+            age_groups.keys(),
+            key=lambda g: int(g.split("-")[0])
+        )
 
-    if age < int(keys[0].split("-")[0]):
-        return age_groups[keys[0]]
+        if age < int(keys[0].split("-")[0]):
+            matching_group = age_groups[keys[0]]
+        else:
+            matching_group = age_groups[keys[-1]]
 
-    return age_groups[keys[-1]]
+    # Для дислалии уточняем план по описанию звука
+    if disorder_code == "dyslalia":
+        text = description.lower().replace("ё", "е")
+
+        if "р" in text and any(
+            phrase in text
+            for phrase in (
+                "не выговаривает",
+                "не произносит",
+                "заменяет",
+                "проблема со звуком",
+                "звук р",
+            )
+        ):
+            return [
+                "Артикуляционная гимнастика для подготовки языка к произношению [р] (по рекомендации логопеда).",
+                "Подготовка к постановке звука [р]: упражнения для подъёма и укрепления кончика языка.",
+                "Постановка звука [р] индивидуально с учётом возможностей ребёнка.",
+                "После появления правильного звука — автоматизация [р] в слогах и словах.",
+                "Различение [р] и [л] на слух и в речи после освоения правильного произношения.",
+            ]
+
+    return matching_group
